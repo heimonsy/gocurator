@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/curator-go/curator"
+	"github.com/eleme/gocurator"
 	"github.com/samuel/go-zookeeper/zk"
 )
 

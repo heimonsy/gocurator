@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/curator-go/curator"
+	"github.com/eleme/gocurator"
 	"github.com/samuel/go-zookeeper/zk"
 )
 
