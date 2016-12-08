@@ -392,6 +392,35 @@ func TestUpdateWhenNotCachingData(t *testing.T) {
 	tt.AssertDataEmpty("/test/foo")
 }
 
+func TestUpdateThenCreateChildren(t *testing.T) {
+	tt := NewTreeCacheTester(t).Start()
+	defer tt.Stop()
+	// Create znodes
+	tt.Create().ForPath("/test")
+	tt.Create().ForPathWithData("/test/foo", []byte("one"))
+
+	// Create TreeCache
+	cache := tt.NewTreeCache("/test", nil)
+	Assert(t, cache.Start() == nil)
+
+	// Assert added
+	tt.AssertEvent(TreeCacheEventNodeAdded, "/test")
+	tt.AssertEventWithData(TreeCacheEventNodeAdded, "/test/foo", "one")
+	tt.AssertEvent(TreeCacheEventInitialized, "")
+
+	tt.SetData().ForPathWithData("/test", []byte("hehe"))
+	tt.AssertEventWithData(TreeCacheEventNodeUpdated, "/test", "hehe")
+
+	tt.Delete().ForPath("/test/foo")
+	tt.AssertEventWithData(TreeCacheEventNodeRemoved, "/test/foo", "one")
+
+	tt.Create().ForPath("/test/foo2")
+	tt.AssertEvent(TreeCacheEventNodeAdded, "/test/foo2")
+
+	tt.Delete().ForPath("/test/foo2")
+	tt.AssertEvent(TreeCacheEventNodeRemoved, "/test/foo2")
+}
+
 func TestDeleteThenCreate(t *testing.T) {
 	// Create tester
 	tt := NewTreeCacheTester(t).Start()
