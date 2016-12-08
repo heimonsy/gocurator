@@ -107,13 +107,13 @@ func (tn *TreeNode) refreshData() {
 
 func (tn *TreeNode) doRefreshChildren() {
 	tn.tree.client.GetChildren().UsingWatcher(
-		curator.NewWatcher(tn.processWatchEvent),
+		curator.NewWatcher(tn.processWatchEvent("children")),
 	).InBackgroundWithCallback(tn.processResult).ForPath(tn.path)
 }
 
 func (tn *TreeNode) doRefreshData() {
 	tn.tree.client.GetData().UsingWatcher(
-		curator.NewWatcher(tn.processWatchEvent),
+		curator.NewWatcher(tn.processWatchEvent("data")),
 	).InBackgroundWithCallback(tn.processResult).ForPath(tn.path)
 }
 
@@ -149,7 +149,7 @@ func (tn *TreeNode) wasDeleted() {
 	if tn.parent == nil {
 		// Root node; use an exist query to watch for existence.
 		tn.tree.client.CheckExists().UsingWatcher(
-			curator.NewWatcher(tn.processWatchEvent),
+			curator.NewWatcher(tn.processWatchEvent("exists")),
 		).InBackgroundWithCallback(tn.processResult).ForPath(tn.path)
 	} else {
 		// Remove from parent if we're currently a child
@@ -158,24 +158,32 @@ func (tn *TreeNode) wasDeleted() {
 }
 
 // processWatchEvent processes watch events.
-func (tn *TreeNode) processWatchEvent(evt *zk.Event) {
-	tn.tree.logger.Debugf("ProcessWatchEvent: %v", evt)
-	switch evt.Type {
-	case zk.EventNodeCreated:
-		if tn.parent != nil {
-			tn.tree.handleException(errors.New("unexpected NodeCreated on non-root node"))
-			return
+func (tn *TreeNode) processWatchEvent(from string) func(*zk.Event) {
+	return func(evt *zk.Event) {
+		tn.tree.logger.Debugf("ProcessWatchEvent: %v", evt)
+		switch evt.Type {
+		case zk.EventNodeCreated:
+			if tn.parent != nil {
+				tn.tree.handleException(errors.New("unexpected NodeCreated on non-root node"))
+				return
+			}
+			tn.wasCreated()
+		case zk.EventNodeChildrenChanged:
+			tn.refreshChildren()
+		case zk.EventNodeDataChanged:
+			// because the bug of samule/go-zookeeper, ChildrenW
+			// could recive the EventNodeDataChanged too
+			if from == "children" {
+				tn.refreshChildren()
+			} else {
+				tn.refreshData()
+			}
+		case zk.EventNodeDeleted:
+			tn.wasDeleted()
+		default:
+			// Leave other type of events unhandled
+			// tn.tree.logger.Printf("Event received: %v", evt)
 		}
-		tn.wasCreated()
-	case zk.EventNodeChildrenChanged:
-		tn.refreshChildren()
-	case zk.EventNodeDataChanged:
-		tn.refreshData()
-	case zk.EventNodeDeleted:
-		tn.wasDeleted()
-	default:
-		// Leave other type of events unhandled
-		// tn.tree.logger.Printf("Event received: %v", evt)
 	}
 }
 
