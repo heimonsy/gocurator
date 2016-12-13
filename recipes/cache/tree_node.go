@@ -160,6 +160,10 @@ func (tn *TreeNode) wasDeleted() {
 // processWatchEvent processes watch events.
 func (tn *TreeNode) processWatchEvent(from string) func(*zk.Event) {
 	return func(evt *zk.Event) {
+		if tn.tree.state.Value() == curator.STOPPED {
+			return
+		}
+
 		tn.tree.logger.Debugf("ProcessWatchEvent: %v", evt)
 		switch evt.Type {
 		case zk.EventNodeCreated:
